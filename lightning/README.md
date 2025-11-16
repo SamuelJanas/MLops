@@ -16,8 +16,9 @@ Overall works nicely and easy enought syntax:
 ```sh
 mlflow ui --backend-store-uri ./mlruns
 ```
-Will start a UI based on local scores. Seems cool for self-hosting. I saw that they allow easy connection with databricks, also cool
-![scr/metrics.png]("Metrics")
+Will start a UI based on local scores. Seems cool for self-hosting. I saw that they allow easy connection with databricks.
+
+![dashboard metrics](scr/metrics.png)
 
 The UI is incredibly similar to wandb and you can click through everything and it looks decent.
 
