@@ -1,14 +1,9 @@
-## MLOps (Manual Labour Operations) Projects
+# Torch Lighning project
 
-This repo contains projects for MLOps course at PUT.
+goal: use torch lightning, something for hyperparameters serch and something for logging. 
 
-<details>
-
-<summary>Torch Lightning Project (1)</summary>
-
-### The project is stored under lightning/ directory
-
-TODO: description
-
-</details>
-
+| lib | why |
+| --- | --- | 
+| lightning | Forced... |
+| MLFlow | Never used it before wanted to take a look |
+| optuna | Simple (but i kinda dislike it) |
