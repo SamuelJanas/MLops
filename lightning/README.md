@@ -1,6 +1,6 @@
 # Torch Lighning project
 
-goal: use torch lightning, something for hyperparameters serch and something for logging. 
+goal: use torch lightning, something for hyperparameters search and something for logging. 
 
 Solution: Training a VAE model on CIFAR-10 dataset. 
 ```sh
@@ -19,14 +19,14 @@ The model itself is okay-ish, the dashboard though I like very much (thank you c
 ---
 MLFlow
 
-Overall works nicely and easy enought syntax:
+Overall works nicely and syntax is easy enough.
 
 ```sh
 mlflow ui --backend-store-uri ./mlruns
 ```
 Will start a UI based on local scores. Seems cool for self-hosting. I saw that they allow easy connection with databricks. 
 
-NOTE: Apparently it's deprecated and I should've used an database backend but it works on my end so I'm keeping it.
+NOTE: Apparently the way I have it implemented is deprecated and I should've used a database backend but it works on my end so I'm keeping it.
 
 ![dashboard metrics](scr/metrics.png)
 
