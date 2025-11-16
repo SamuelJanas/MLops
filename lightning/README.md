@@ -28,9 +28,14 @@ Will start a UI based on local scores. Seems cool for self-hosting. I saw that t
 
 NOTE: Apparently the way I have it implemented is deprecated and I should've used a database backend but it works on my end so I'm keeping it.
 
+The UI is incredibly similar to wandb and you can click through everything and it looks decent.
 ![dashboard metrics](scr/metrics.png)
 
-The UI is incredibly similar to wandb and you can click through everything and it looks decent.
+You can compare multiple runs, e.g. here's one comparing multiple trials from optuna
+![dashboard comparison](scr/comparison.png)
+
+Looking at the metrics I see that there might be something wrong with the model/training/loss. And it would normally prompt me to check under the hood so I would say that the goal of this project was reached. 
+
 
 ___
 Lightning
@@ -50,4 +55,6 @@ I've used it heavily in some other project and didn't really enjoy it. The dashb
 I've also added streamlit because what is VAE without nice images. We have LLMs to thank for the excessive amount of emojis but overall I've clicked through it and it works as intended.
 ![streamlit](scr/streamlit.png)
 
+Here's the reconstucrion of images from VAE.
+![recon](src/recon.png)
 
