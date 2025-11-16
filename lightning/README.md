@@ -2,6 +2,14 @@
 
 goal: use torch lightning, something for hyperparameters serch and something for logging. 
 
+Solution: Training a VAE model on CIFAR-10 dataset. 
+```sh
+python train.py --skip_optuna --final_epochs 30
+```
+Will train a model and later save it to a checkpoint that you can use in streamlit.
+
+The model itself is okay-ish, the dashboard though I like very much (thank you claude).
+
 | lib | why |
 | --- | --- | 
 | lightning | Forced... |
@@ -16,7 +24,9 @@ Overall works nicely and easy enought syntax:
 ```sh
 mlflow ui --backend-store-uri ./mlruns
 ```
-Will start a UI based on local scores. Seems cool for self-hosting. I saw that they allow easy connection with databricks.
+Will start a UI based on local scores. Seems cool for self-hosting. I saw that they allow easy connection with databricks. 
+
+NOTE: Apparently it's deprecated and I should've used an database backend but it works on my end so I'm keeping it.
 
 ![dashboard metrics](scr/metrics.png)
 
@@ -33,3 +43,11 @@ ___
 Optuna
 
 I've used it heavily in some other project and didn't really enjoy it. The dashboard is a little buggy. 
+
+
+### Streamlit
+
+I've also added streamlit because what is VAE without nice images. We have LLMs to thank for the excessive amount of emojis but overall I've clicked through it and it works as intended.
+![streamlit](scr/streamlit.png)
+
+

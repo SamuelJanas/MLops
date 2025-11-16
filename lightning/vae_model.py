@@ -19,10 +19,14 @@ class VAE(pl.LightningModule):
         self.kl_weight = kl_weight
         self.learning_rate = learning_rate
 
+        # Store original hidden_dims (make a copy to avoid mutation issues)
+        encoder_dims = hidden_dims.copy()
+        decoder_dims = hidden_dims[::-1]  # Reversed copy for decoder
+
         # Encoder
         modules = []
         in_channels = input_channels
-        for h_dim in hidden_dims:
+        for h_dim in encoder_dims:
             modules.append(
                 nn.Sequential(
                     nn.Conv2d(in_channels, h_dim, kernel_size=3, stride=2, padding=1),
@@ -33,26 +37,25 @@ class VAE(pl.LightningModule):
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+        self.fc_mu = nn.Linear(encoder_dims[-1] * 4, latent_dim)
+        self.fc_var = nn.Linear(encoder_dims[-1] * 4, latent_dim)
 
         # Decoder
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.decoder_input = nn.Linear(latent_dim, decoder_dims[0] * 4)
 
-        hidden_dims.reverse()
         modules = []
-        for i in range(len(hidden_dims) - 1):
+        for i in range(len(decoder_dims) - 1):
             modules.append(
                 nn.Sequential(
                     nn.ConvTranspose2d(
-                        hidden_dims[i],
-                        hidden_dims[i + 1],
+                        decoder_dims[i],
+                        decoder_dims[i + 1],
                         kernel_size=3,
                         stride=2,
                         padding=1,
                         output_padding=1,
                     ),
-                    nn.BatchNorm2d(hidden_dims[i + 1]),
+                    nn.BatchNorm2d(decoder_dims[i + 1]),
                     nn.LeakyReLU(),
                 )
             )
@@ -61,16 +64,16 @@ class VAE(pl.LightningModule):
 
         self.final_layer = nn.Sequential(
             nn.ConvTranspose2d(
-                hidden_dims[-1],
-                hidden_dims[-1],
+                decoder_dims[-1],
+                decoder_dims[-1],
                 kernel_size=3,
                 stride=2,
                 padding=1,
                 output_padding=1,
             ),
-            nn.BatchNorm2d(hidden_dims[-1]),
+            nn.BatchNorm2d(decoder_dims[-1]),
             nn.LeakyReLU(),
-            nn.Conv2d(hidden_dims[-1], input_channels, kernel_size=3, padding=1),
+            nn.Conv2d(decoder_dims[-1], input_channels, kernel_size=3, padding=1),
             nn.Sigmoid(),
         )
 
@@ -83,7 +86,9 @@ class VAE(pl.LightningModule):
 
     def decode(self, z):
         result = self.decoder_input(z)
-        result = result.view(-1, self.hparams.hidden_dims[0], 2, 2)
+        # Get the first decoder dimension from saved hyperparameters
+        decoder_first_dim = self.hparams.hidden_dims[-1]  # This is 256 for default
+        result = result.view(-1, decoder_first_dim, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
         return result
@@ -125,4 +130,3 @@ class VAE(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
