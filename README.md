@@ -6,8 +6,7 @@ This repo contains projects for MLOps course at PUT.
 
 <summary><h2>(1) Torch Lightning Project</h2></summary>
 
-[HERE](Lightning/README.md) is the detailed description.
-
+[HERE](lightning/README.md) is the detailed description.
 </details>
 
 
