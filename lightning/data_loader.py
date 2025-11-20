@@ -3,8 +3,8 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
 
-class CIFAR10DataModule(pl.LightningDataModule):
-    def __init__(self, data_dir="./data", batch_size=128, num_workers=4):
+class MNISTDataModule(pl.LightningDataModule):
+    def __init__(self, data_dir: str = "./data", batch_size: int = 128, num_workers: int = 4):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -13,35 +13,27 @@ class CIFAR10DataModule(pl.LightningDataModule):
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                transforms.Normalize((0.1307,), (0.3081,)),  # standard MNIST stats
             ]
         )
 
     def prepare_data(self):
-        # Download CIFAR-10
-        datasets.CIFAR10(self.data_dir, train=True, download=True)
-        datasets.CIFAR10(self.data_dir, train=False, download=True)
+        datasets.MNIST(self.data_dir, train=True, download=True)
+        datasets.MNIST(self.data_dir, train=False, download=True)
 
     def setup(self, stage=None):
         if stage == "fit" or stage is None:
-            cifar_full = datasets.CIFAR10(
-                self.data_dir, train=True, transform=self.transform
-            )
-            # Split train into train and validation
-            train_size = int(0.8 * len(cifar_full))
-            val_size = len(cifar_full) - train_size
-            self.cifar_train, self.cifar_val = random_split(
-                cifar_full, [train_size, val_size]
-            )
+            mnist_full = datasets.MNIST(self.data_dir, train=True, transform=self.transform)
+            train_size = int(0.8 * len(mnist_full))
+            val_size = len(mnist_full) - train_size
+            self.mnist_train, self.mnist_val = random_split(mnist_full, [train_size, val_size])
 
         if stage == "test" or stage is None:
-            self.cifar_test = datasets.CIFAR10(
-                self.data_dir, train=False, transform=self.transform
-            )
+            self.mnist_test = datasets.MNIST(self.data_dir, train=False, transform=self.transform)
 
     def train_dataloader(self):
         return DataLoader(
-            self.cifar_train,
+            self.mnist_train,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
@@ -50,7 +42,7 @@ class CIFAR10DataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.cifar_val,
+            self.mnist_val,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=True if self.num_workers > 0 else False,
@@ -58,7 +50,7 @@ class CIFAR10DataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            self.cifar_test,
+            self.mnist_test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=True if self.num_workers > 0 else False,
