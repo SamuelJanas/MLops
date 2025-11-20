@@ -21,8 +21,6 @@ except ImportError:
             self.initialized = False
 
 
-# IMPORTANT:
-# TorchServe will run with this file's working dir = model store env.
 # We assume the Lightning project is available in PYTHONPATH, e.g.
 # `PYTHONPATH=/Users/samuel/Documents/uni/MLops`.
 from lightning.model import MNISTClassifier
@@ -84,13 +82,11 @@ class MNISTLightningHandler(BaseHandler):
         for row in data:
             body = row.get("body")
             if body is None:
-                # Might be a JSON dict directly
                 body = row.get("data")
 
             if isinstance(body, (bytes, bytearray)):
                 img = self._decode_image(body)
             else:
-                # Assume JSON
                 if isinstance(body, str):
                     body = json.loads(body)
 

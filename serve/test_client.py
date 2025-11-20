@@ -1,6 +1,5 @@
 import argparse
 import base64
-import json
 import sys
 
 import requests
@@ -39,7 +38,6 @@ def main():
     print("Raw bytes response status:", resp_raw.status_code)
     print("Raw bytes response body:", resp_raw.text)
 
-    # Example 2: JSON with base64-encoded image
     payload = {"image": base64.b64encode(img_bytes).decode("utf-8")}
     resp_json = requests.post(args.url, json=payload, timeout=10)
     print("JSON response status:", resp_json.status_code)

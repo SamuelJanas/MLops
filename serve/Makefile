@@ -47,7 +47,6 @@ api: package
 stop:
 	$(TORCHSERVE) --stop
 
-# Optional very quick curl check (kept minimal)
 test:
 	curl -X POST "http://localhost:8080/predictions/$(MODEL_NAME)" \
 		-T sample_digit.png \

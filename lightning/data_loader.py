@@ -13,8 +13,8 @@ class MNISTDataModule(pl.LightningDataModule):
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,)),  # standard MNIST stats
-            ]
+                transforms.Normalize((0.1307,), (0.3081,)),
+              ]
         )
 
     def prepare_data(self):

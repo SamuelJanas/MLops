@@ -11,9 +11,9 @@ class MNISTClassifier(pl.LightningModule):
 
         # Very small CNN for MNIST
         # Input: 1 x 28 x 28
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)   # -> 16 x 26 x 26
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)  # -> 32 x 24 x 24
-        self.pool = nn.MaxPool2d(2)                              # -> 32 x 12 x 12
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
+        self.conv   2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)
+        self.pool = nn.MaxPool2d(2)
 
         self.dropout = nn.Dropout(0.25)
         self.fc1 = nn.Linear(32 * 12 * 12, 64)

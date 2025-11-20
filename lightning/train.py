@@ -81,7 +81,7 @@ def main():
     parser.add_argument("--max_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
 
-    # W&B
+    # WandB
     parser.add_argument("--wandb_project", type=str, default="mlops-mnist", help="Weights & Biases project name")
     parser.add_argument("--run_name", type=str, default=None, help="Optional W&B run name")
 
