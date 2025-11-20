@@ -9,23 +9,23 @@ class MNISTClassifier(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # Simple 2-layer CNN for 1x28x28 MNIST
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
+        # Very small CNN for MNIST
+        # Input: 1 x 28 x 28
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)   # -> 16 x 26 x 26
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)  # -> 32 x 24 x 24
+        self.pool = nn.MaxPool2d(2)                              # -> 32 x 12 x 12
 
-        self.fc1 = nn.Linear(64 * 12 * 12, 128)
-        self.fc2 = nn.Linear(128, 10)
+        self.dropout = nn.Dropout(0.25)
+        self.fc1 = nn.Linear(32 * 12 * 12, 64)
+        self.fc2 = nn.Linear(64, 10)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
+        x = self.dropout(x)
         x = F.relu(self.fc1(x))
-        x = self.dropout2(x)
         x = self.fc2(x)
         return x
 

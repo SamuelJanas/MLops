@@ -1,0 +1,24 @@
+program: train.py
+method: bayes
+
+metric:
+  name: val_acc
+  goal: maximize
+
+parameters:
+  learning_rate:
+    distribution: log_uniform_values
+    min: 1e-4
+    max: 1e-2
+  batch_size:
+    values: [64, 128, 256]
+  max_epochs:
+    values: [5, 10]
+
+command:
+  - python
+  - train.py
+  - --data_dir=./data
+  - --num_workers=4
+  - --wandb_project=mlops-mnist
+  - ${args}
