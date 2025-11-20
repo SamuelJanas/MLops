@@ -1,0 +1,6 @@
+torch
+torchvision
+pillow
+pytorch-lightning
+torchserve
+torch-model-archiver
