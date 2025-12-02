@@ -21,9 +21,8 @@ except ImportError:
             self.initialized = False
 
 
-# We assume the Lightning project is available in PYTHONPATH, e.g.
-# `PYTHONPATH=/Users/samuel/Documents/uni/MLops`.
-from lightning.model import MNISTClassifier
+# Import from the model.py file bundled in the MAR archive
+from model import MNISTClassifier
 
 
 class MNISTLightningHandler(BaseHandler):

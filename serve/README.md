@@ -2,11 +2,12 @@
 
 ## Setup
 
-Before running TorchServe, you must set the PYTHONPATH so the handler can import the Lightning model:
+**Important**: All commands should be run from the project root directory:
 
 ```bash
-export PYTHONPATH=/Users/samuel/Documents/uni/MLops:$PYTHONPATH
+cd /Users/samuel/Documents/uni/MLops
 ```
+
 ## Quick Start
 
 1. **Package the model**
@@ -20,20 +21,27 @@ export PYTHONPATH=/Users/samuel/Documents/uni/MLops:$PYTHONPATH
 
 2. **Start TorchServe**
    ```bash
-   make api
+   make serve-api
    ```
    This starts TorchServe with token authentication disabled for local development.
 
 3. **Test the model** (in a new terminal)
    ```bash
-   make test
+   cd /Users/samuel/Documents/uni/MLops
+   make serve-test
    ```
    This sends `sample_digit.png` to the model and returns predictions.
 
 4. **Stop TorchServe**
    ```bash
-   make stop
+   make serve-stop
    ```
+
+5. **Clean up** (optional)
+   ```bash
+   make serve-clean
+   ```
+   This removes `.mar` files and logs.
 
 ## Generate a Test Image
 
@@ -66,7 +74,8 @@ Expected response:
 ## Makefile Targets
 
 - `make package` - Package the Lightning model into a .mar file
-- `make api` - Start TorchServe with the model
-- `make test` - Send a test prediction request
-- `make stop` - Stop TorchServe
-- `make all` - Package and start (equivalent to `make package api`)
+- `make serve-api` - Start TorchServe with the model
+- `make serve-test` - Send a test prediction request
+- `make serve-stop` - Stop TorchServe
+- `make serve-clean` - Remove .mar files and logs
+- `make all` - Package and start (equivalent to `make package serve-api`)

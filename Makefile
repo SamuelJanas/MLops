@@ -2,9 +2,9 @@ PYTHON := python
 TORCHSERVE := torchserve
 MODEL_ARCHIVER := torch-model-archiver
 
-PROJECT_ROOT := ..
+PROJECT_ROOT := .
 LIGHTNING_DIR := $(PROJECT_ROOT)/lightning
-SERVE_DIR := .
+SERVE_DIR := $(PROJECT_ROOT)/serve
 MODEL_STORE := $(SERVE_DIR)/model_store
 
 MODEL_NAME := mnist_classifier
@@ -14,9 +14,9 @@ MAR_FILE := $(MODEL_STORE)/$(MODEL_NAME).mar
 
 CONFIG_FILE := $(SERVE_DIR)/config.properties
 
-.PHONY: all package api stop test
+.PHONY: all package serve-api serve-stop serve-test serve-clean
 
-all: package api
+all: package serve-api
 
 package: $(MAR_FILE)
 
@@ -34,7 +34,7 @@ $(MAR_FILE): $(MODEL_STORE) $(HANDLER_FILE) $(CHECKPOINT_PATH)
 		--extra-files "$(LIGHTNING_DIR)/model.py" \
 		--force
 
-api: package
+serve-api: package
 	# Start TorchServe with our model (disable token auth for local dev)
 	TS_DISABLE_TOKEN_AUTHORIZATION=true $(TORCHSERVE) \
 		--start \
@@ -44,10 +44,14 @@ api: package
 		--disable-token-auth \
 		--ncs
 
-stop:
+serve-stop:
 	$(TORCHSERVE) --stop
 
-test:
+serve-test:
 	curl -X POST "http://localhost:8080/predictions/$(MODEL_NAME)" \
-		-T sample_digit.png \
+		-T $(SERVE_DIR)/sample_digit.png \
 		-H "Content-Type: application/octet-stream"
+
+serve-clean:
+	rm -rf $(MODEL_STORE)/*.mar
+	rm -rf $(SERVE_DIR)/logs/
