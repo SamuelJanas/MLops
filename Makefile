@@ -83,9 +83,10 @@ deploy-clean:
 test-local:
 	@echo "Testing local Docker deployment..."
 	@echo "Starting container on port 8000..."
+	@docker rm -f mnist-test >/dev/null 2>&1 || true
 	docker run -d --name mnist-test -p 8000:8000 mnist-classifier:latest
 	@echo "Waiting for container to start..."
-	@ping -n 6 127.0.0.1 > nul
+	@sleep 5
 	cd $(DEPLOY_DIR) && $(PYTHON) test_client.py http://localhost:8000
 	@echo "Stopping test container..."
 	docker stop mnist-test

@@ -5,8 +5,13 @@ Fully automated deployment of MNIST classifier to EC2.
 """
 import boto3
 import os
-import time
+import shutil
 import subprocess
+import tarfile
+import tempfile
+import time
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -19,6 +24,16 @@ AMI_ID = os.getenv("AMI_ID", "ami-0c55b159cbfafe1f0")  # Ubuntu 22.04 LTS in us-
 KEY_NAME = os.getenv("KEY_NAME", "mlops-key")
 SECURITY_GROUP_NAME = "mlops-mnist-sg"
 INSTANCE_NAME = "mlops-mnist-classifier"
+
+# Files required to build and run the Docker image remotely
+FILES_TO_UPLOAD = [
+    'deploy/Dockerfile',
+    'deploy/app.py',
+    'deploy/requirements.txt',
+    'deploy/test_client.py',
+    'lightning/model.py',
+    'lightning/checkpoints/mnist_classifier/model.ckpt',
+]
 
 # User data script to set up Docker and run container
 USER_DATA_SCRIPT = """#!/bin/bash
@@ -52,6 +67,27 @@ echo "Upload your Docker image or build it on this instance."
 """
 
 
+def prepare_deploy_bundle(repo_root):
+    """Create a tar.gz bundle with only the files needed for deployment."""
+    temp_dir = tempfile.mkdtemp(prefix="mlops_bundle_")
+    bundle_root = Path(temp_dir) / "payload"
+    bundle_root.mkdir(parents=True, exist_ok=True)
+
+    for rel_path in FILES_TO_UPLOAD:
+        src = Path(repo_root) / rel_path
+        if not src.exists():
+            raise FileNotFoundError(f"Required file '{rel_path}' not found at {src}")
+        dest = bundle_root / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+
+    archive_path = Path(temp_dir) / "mlops_deploy_bundle.tar.gz"
+    with tarfile.open(archive_path, "w:gz") as tar:
+        tar.add(bundle_root, arcname=".")
+
+    return archive_path, temp_dir
+
+
 def get_or_create_key_pair(ec2_client, key_name):
     """Create EC2 key pair if it doesn't exist."""
     try:
@@ -61,7 +97,7 @@ def get_or_create_key_pair(ec2_client, key_name):
     except ec2_client.exceptions.ClientError:
         print(f"Creating new key pair '{key_name}'")
         response = ec2_client.create_key_pair(KeyName=key_name)
-        
+
         # Save private key
         key_file = f"{key_name}.pem"
         with open(key_file, 'w') as f:
@@ -82,13 +118,13 @@ def get_or_create_security_group(ec2_client):
         return sg_id
     except ec2_client.exceptions.ClientError:
         print(f"Creating security group '{SECURITY_GROUP_NAME}'")
-        
+
         response = ec2_client.create_security_group(
             GroupName=SECURITY_GROUP_NAME,
             Description="Security group for MNIST classifier deployment"
         )
         sg_id = response['GroupId']
-        
+
         # Add inbound rules
         ec2_client.authorize_security_group_ingress(
             GroupId=sg_id,
@@ -122,10 +158,10 @@ def get_latest_ubuntu_ami(ec2_client):
             ],
             Owners=['099720109477']  # Canonical's AWS account ID
         )
-        
+
         if not response['Images']:
             raise ValueError("No Ubuntu AMI found")
-        
+
         # Sort by creation date and get the latest
         images = sorted(response['Images'], key=lambda x: x['CreationDate'], reverse=True)
         ami_id = images[0]['ImageId']
@@ -140,7 +176,7 @@ def get_latest_ubuntu_ami(ec2_client):
 def create_instance(ec2_client, ami_id, key_name, security_group_id):
     """Create EC2 instance."""
     print(f"Launching EC2 instance (type: {INSTANCE_TYPE})...")
-    
+
     response = ec2_client.run_instances(
         ImageId=ami_id,
         InstanceType=INSTANCE_TYPE,
@@ -159,38 +195,38 @@ def create_instance(ec2_client, ami_id, key_name, security_group_id):
             }
         ]
     )
-    
+
     instance_id = response['Instances'][0]['InstanceId']
     print(f"Instance created: {instance_id}")
-    
+
     return instance_id
 
 
 def wait_for_instance(ec2_client, instance_id):
     """Wait for instance to be running and get public IP."""
     print("Waiting for instance to be running...")
-    
+
     waiter = ec2_client.get_waiter('instance_running')
     waiter.wait(InstanceIds=[instance_id])
-    
+
     response = ec2_client.describe_instances(InstanceIds=[instance_id])
     public_ip = response['Reservations'][0]['Instances'][0].get('PublicIpAddress')
-    
+
     print(f"Instance is running. Public IP: {public_ip}")
     return public_ip
 
 
-def upload_and_setup(public_ip, key_file):
-    """Upload files and setup Docker on EC2."""
+def upload_and_setup(public_ip, key_file, bundle_path):
+    """Upload minimal bundle and setup Docker on EC2."""
     print("\nWaiting for SSH to be ready...")
     time.sleep(30)  # Wait for instance to fully initialize
-    
+
     # Test SSH connection
     max_retries = 10
     for i in range(max_retries):
         try:
             result = subprocess.run(
-                ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no', 
+                ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
                  '-o', 'ConnectTimeout=10', f'ubuntu@{public_ip}', 'echo', 'ready'],
                 capture_output=True,
                 timeout=15
@@ -200,44 +236,45 @@ def upload_and_setup(public_ip, key_file):
                 break
         except subprocess.TimeoutExpired:
             pass
-        
+
         if i < max_retries - 1:
             print(f"SSH not ready yet, retrying ({i+1}/{max_retries})...")
             time.sleep(10)
-    
-    print("\nUploading files to EC2...")
-    # Upload deploy directory
-    subprocess.run(['scp', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
-                   '-r', 'deploy', f'ubuntu@{public_ip}:/home/ubuntu/'], check=True)
-    
-    # Upload lightning directory
-    subprocess.run(['scp', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
-                   '-r', 'lightning', f'ubuntu@{public_ip}:/home/ubuntu/deploy/'], check=True)
-    
-    # Upload checkpoints
-    subprocess.run(['scp', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
-                   '-r', 'checkpoints', f'ubuntu@{public_ip}:/home/ubuntu/deploy/'], check=True)
-    
+
+    print("\nUploading deployment bundle to EC2...")
+    remote_bundle = "/home/ubuntu/mlops_deploy_bundle.tar.gz"
+    subprocess.run([
+        'scp', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
+        str(bundle_path), f'ubuntu@{public_ip}:{remote_bundle}'
+    ], check=True)
+
+    print("Extracting bundle on EC2...")
+    extract_cmd = f"tar -xzf {remote_bundle} -C /home/ubuntu && rm {remote_bundle}"
+    subprocess.run([
+        'ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
+        f'ubuntu@{public_ip}', extract_cmd
+    ], check=True)
+
     print("Files uploaded successfully!")
-    
+
     print("\nBuilding and starting Docker container on EC2...")
-    
+
     setup_commands = """
-    cd /home/ubuntu/deploy && \
-    sudo docker build -t mnist-classifier . && \
+    cd /home/ubuntu && \
+    sudo docker build -f deploy/Dockerfile -t mnist-classifier . && \
     sudo docker run -d -p 8000:8000 --name mnist-api mnist-classifier && \
     echo "Waiting for container to start..." && \
     sleep 10 && \
     curl -s http://localhost:8000/health || echo "Service starting..."
     """
-    
+
     result = subprocess.run(
         ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
          f'ubuntu@{public_ip}', setup_commands],
         capture_output=True,
         text=True
     )
-    
+
     print(result.stdout)
     if result.returncode == 0:
         print("Docker container started successfully!")
@@ -249,44 +286,49 @@ def deploy():
     """Main deployment function - fully automated."""
     print("Starting AWS EC2 deployment...")
     print(f"Region: {AWS_REGION}")
-    
+
     # Change to project root for file uploads
     original_dir = os.getcwd()
     project_root = os.path.dirname(os.path.abspath(__file__))
     os.chdir(os.path.dirname(project_root))
-    
+    repo_root = os.getcwd()
+    bundle_path = None
+    bundle_temp_dir = None
+
     try:
         # Initialize boto3 client
         ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-        
+
+        # Prepare deployment bundle with only required files
+        bundle_path, bundle_temp_dir = prepare_deploy_bundle(repo_root)
+
         # Create or get key pair
         key_file = get_or_create_key_pair(ec2_client, KEY_NAME)
         if not key_file:
             key_file = f"{KEY_NAME}.pem"
-        
+
         # Make sure key file is in deploy directory
         if not os.path.exists(os.path.join('deploy', key_file)):
             if os.path.exists(key_file):
-                import shutil
                 shutil.copy(key_file, os.path.join('deploy', key_file))
-        
+
         key_path = os.path.join('deploy', key_file)
-        
+
         # Create or get security group
         sg_id = get_or_create_security_group(ec2_client)
-        
+
         # Get latest Ubuntu AMI
         ami_id = get_latest_ubuntu_ami(ec2_client)
-        
+
         # Create instance
         instance_id = create_instance(ec2_client, ami_id, KEY_NAME, sg_id)
-        
+
         # Wait for instance to be running
         public_ip = wait_for_instance(ec2_client, instance_id)
-        
+
         # Upload files and setup
-        upload_and_setup(public_ip, key_path)
-        
+        upload_and_setup(public_ip, key_path, bundle_path)
+
         print("\n" + "="*60)
         print("DEPLOYMENT SUCCESSFUL!")
         print("="*60)
@@ -298,30 +340,32 @@ def deploy():
         print("\nCleanup when done:")
         print(f"  make deploy-clean")
         print("="*60)
-        
+
         # Save deployment info
         with open(os.path.join('deploy', '.deployment_info'), 'w') as f:
             f.write(f"INSTANCE_ID={instance_id}\n")
             f.write(f"PUBLIC_IP={public_ip}\n")
             f.write(f"REGION={AWS_REGION}\n")
-        
+
         return instance_id, public_ip
-    
+
     finally:
+        if bundle_temp_dir and os.path.exists(bundle_temp_dir):
+            shutil.rmtree(bundle_temp_dir)
         os.chdir(original_dir)
 
 
 def list_instances():
     """List all running instances."""
     ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-    
+
     response = ec2_client.describe_instances(
         Filters=[
             {'Name': 'instance-state-name', 'Values': ['running', 'pending']},
             {'Name': 'tag:Project', 'Values': ['MLOps']}
         ]
     )
-    
+
     print("\nRunning MLOps instances:")
     for reservation in response['Reservations']:
         for instance in reservation['Instances']:
@@ -335,7 +379,7 @@ def list_instances():
 def terminate_instance(instance_id):
     """Terminate a specific instance."""
     ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-    
+
     print(f"Terminating instance {instance_id}...")
     ec2_client.terminate_instances(InstanceIds=[instance_id])
     print("Instance termination initiated")
@@ -344,13 +388,13 @@ def terminate_instance(instance_id):
 def cleanup_all():
     """Clean up all deployed resources."""
     ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-    
+
     # Read deployment info
     info_file = '.deployment_info'
     if os.path.exists(info_file):
         with open(info_file, 'r') as f:
             info = dict(line.strip().split('=') for line in f if '=' in line)
-        
+
         instance_id = info.get('INSTANCE_ID')
         if instance_id:
             print(f"Terminating instance: {instance_id}")
@@ -359,7 +403,7 @@ def cleanup_all():
             waiter = ec2_client.get_waiter('instance_terminated')
             waiter.wait(InstanceIds=[instance_id])
             print("Instance terminated successfully!")
-        
+
         # Remove deployment info
         os.remove(info_file)
         print("Deployment info cleaned up")
@@ -367,13 +411,13 @@ def cleanup_all():
         print("No deployment info found. Checking for MLOps instances...")
         list_instances()
         print("\nTo manually terminate, use: make terminate INSTANCE_ID=i-xxx")
-    
+
     print("\nCleanup complete!")
 
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) > 1:
         command = sys.argv[1]
         if command == "list":
