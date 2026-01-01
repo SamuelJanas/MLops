@@ -5,3 +5,11 @@ mlruns/
 logs/
 *.mar
 wandb/
+
+# Deployment artifacts
+deploy/.env
+deploy/*.pem
+deploy/.deployment_info
+deploy/test_digit.png
+*.pyc
+.DS_Store

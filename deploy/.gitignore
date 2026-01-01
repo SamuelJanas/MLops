@@ -1,0 +1,6 @@
+.env
+*.pem
+.deployment_info
+__pycache__/
+*.pyc
+.DS_Store
